@@ -2,12 +2,20 @@ long delayPeriod = 35000;
 long counterPeriod = 0;
 long counterFlash = 0;
 boolean flagOn;
+long counterPeriodTemp = 0;
+
+boolean teapotIsOn;
 
 char val;
 String val2 = "";
 long periodWake = 5000;
 long counter = 0;
+
+float tempC;
+int reading;
 void setup() {
+  analogReference(INTERNAL);// включаем внутрений источник опорного 1,1 вольт
+
   pinMode(2, OUTPUT);
   pinMode(3, OUTPUT);
   pinMode(4, OUTPUT);
@@ -34,6 +42,8 @@ void loop() {
   funChar();
 
   flash();
+
+  tempControl();
 }
 
 void funChar() {
@@ -76,6 +86,21 @@ void flash() {
       digitalWrite(8, 0);
 
       flagOn = false;
+    }
+  }
+}
+
+//Функция термоконтроля
+void tempControl() {
+  //Таймер опроса каждую секунду
+  if (millis() - counterPeriodTemp > 1000) {
+    counterPeriodTemp = millis();
+    reading = analogRead(A0);        // получаем значение с аналогового входа A0
+    tempC = reading / 9.31;          // переводим в цельсии
+    Serial.println(tempC);           // Отправка температуры на телефон
+    //При достижении указанной температуры отключить реле
+    if (tempC > 85) {
+      digitalWrite(13, 1);
     }
   }
 }
