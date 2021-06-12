@@ -1,33 +1,50 @@
-long delayPeriod = 14000;
-long counterPeriod = 0;
-boolean flagOn;
+// Импорт необходимых библиотек
+#include <OneWire.h>
+#include <DallasTemperature.h>
+
+// Data wire is plugged into port 2 and 3 on the Arduino
+#define ONE_WIRE_BUS 2
+#define SECOND_WIRE_BUS 3
+
+// Setup a oneWire instance to communicate with any OneWire devices (not just Maxim/Dallas temperature ICs)
+OneWire oneWire(ONE_WIRE_BUS);
+OneWire secondWire(SECOND_WIRE_BUS);
+
+// Pass our oneWire reference to Dallas Temperature.
+DallasTemperature sensors(&oneWire);
+DallasTemperature sensors2(&secondWire);
+
+// Переменная счетчика. Для отправки данных с интервалом
 long counterPeriodTemp = 0;
 
+// Для хранения принятого символа
 char val;
 
-float tempC;//Переменная для хранения температуры в 
-int reading;//Перменная для хранения аналогового значения температуры
+//Температура отключения чайника
+float tempOff = 98.0;
+
 void setup() {
-  analogReference(INTERNAL);// включаем внутрений источник опорного 1,1 вольт
 
-  pinMode(2, OUTPUT);
-
-  digitalWrite(2, 0);
- 
   Serial.begin(9600);
-  
+
+  // Start up the library
+  sensors.begin();
+  sensors2.begin();
+
   digitalWrite(13, 1);
+
 }
 
 void loop() {
+
   funChar();
 
-  flash();
-
   tempControl();
+
 }
 
 void funChar() {
+
   if (Serial.available()) {
     val = Serial.read();
     //Serial.println(val);
@@ -40,50 +57,51 @@ void funChar() {
       digitalWrite(13, 0);
     }
   }
-}
-//Функция для пробуждения посредтвом включения светодидов через определенные промежутки времени
-void flash() {
-  //Если прошло времени больше чем время задежрки, включить нагрузки пробуждения
-  if (millis() - counterPeriod > delayPeriod) {
-    counterPeriod = millis();
-    digitalWrite(2, 1);
-    digitalWrite(3, 1);
-    digitalWrite(4, 1);
-    digitalWrite(5, 1);
-    digitalWrite(6, 1);
-    digitalWrite(7, 1);
-    digitalWrite(8, 1);
-    
-    flagOn = true;        //Переменная для хранения состояния реле. Реле было включено
-  }
-  
-  // Если реле было включено, выключить
-  if (flagOn) {
-    if (millis() - counterPeriod > 1000) {
-      digitalWrite(2, 0);
-      digitalWrite(3, 0);
-      digitalWrite(4, 0);
-      digitalWrite(5, 0);
-      digitalWrite(6, 0);
-      digitalWrite(7, 0);
-      digitalWrite(8, 0);
 
-      flagOn = false;// Изменение переменной состояния нагрузки пробуждения. Нагрузка была выключена
-    }
-  }
 }
+
 
 //Функция термоконтроля
 void tempControl() {
   //Таймер опроса каждую секунду
   if (millis() - counterPeriodTemp > 1000) {
     counterPeriodTemp = millis();
-    reading = analogRead(A0);        // получаем значение с аналогового входа A0
-    //Serial.println(reading);
-    tempC = reading / 9.31;          // переводим в цельсии
-    Serial.println(tempC);           // Отправка температуры на телефон
+
+    // Описание на англиском сохранено как в стандартном примере для подключения данных датчиков
+    // call sensors.requestTemperatures() to issue a global temperature
+    // request to all devices on the bus
+    sensors.requestTemperatures(); // Send the command to get temperatures
+    sensors2.requestTemperatures(); // Send the command to get temperatures
+    // After we got the temperatures, we can print them here.
+    // We use the function ByIndex, and as an example get the temperature from the first sensor only.
+    float tempC = sensors.getTempCByIndex(0);
+    float tempC2 = sensors2.getTempCByIndex(0);
+
+    // Отправка первого параметра при успешном чтении
+    // Check if reading was successful
+    if (tempC != DEVICE_DISCONNECTED_C) {
+      Serial.print(tempC);
+    } else {
+      Serial.print(0);
+    }
+
+    Serial.print("A");  // Символ, который определяет где кончается первый параметр
+
+    // Отправка второго параметра при успешном чтении
+    if (tempC2 != DEVICE_DISCONNECTED_C) {
+      Serial.print(tempC2);
+    } else {
+      Serial.print(0);
+    }
+
+    Serial.print("B");  // Символ, который определяет где кончается второй параметр
+
+    // Отправка состояния реле.
+    // Перенос строки определяет конец массива байтов и показывает где кончает данных параметр
+    Serial.println(digitalRead(13));
+    
     //При достижении указанной температуры отключить реле
-    if (tempC > 85) {
+    if (tempC > tempOff) {
       digitalWrite(13, 1);
     }
   }
